@@ -395,7 +395,7 @@ class AudioCinemaGUI:
             (ax_ref_cut,  "Referencia – RECORTADA"),
         ]:
             ax.set_title(title)
-            ax.set_xlabel("Tiempo")
+            ax.set_xlabel("Tiempo (s)")
             ax.set_ylabel("Amplitud")
             ax.grid(True, axis="x", linestyle=":", linewidth=0.8)
 
