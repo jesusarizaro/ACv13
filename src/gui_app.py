@@ -376,9 +376,19 @@ class AudioCinemaGUI:
         # =========================
         # FIGURA (2 GRÁFICAS)
         # =========================
-        fig_ref = Figure(figsize=(7.2, 3.4), dpi=100)
+        fig_ref = Figure(figsize=(8, 3), dpi=100)
+
         ax_ref_orig = fig_ref.add_subplot(1, 2, 1)
         ax_ref_cut  = fig_ref.add_subplot(1, 2, 2)
+
+        fig_ref.subplots_adjust(
+            left=0.08,
+            right=0.95,
+            top=0.90,
+            bottom=0.20,
+            wspace=0.30
+        )
+
 
         for ax, title in [
             (ax_ref_orig, "Referencia – ORIGINAL"),
@@ -387,7 +397,8 @@ class AudioCinemaGUI:
             ax.set_title(title)
             ax.set_xlabel("Tiempo")
             ax.set_ylabel("Amplitud")
-            ax.grid(True)
+            ax.grid(True, axis="x", linestyle=":", linewidth=0.8)
+
 
         canvas_ref = FigureCanvasTkAgg(fig_ref, master=r)
         canvas_ref.get_tk_widget().grid(
@@ -396,31 +407,108 @@ class AudioCinemaGUI:
         )
 
         # =========================
-        # RUTA
+        # RUTA (alineada a la izquierda)
         # =========================
         ref_path_var = tk.StringVar(value=ref_var.get())
 
-        ttk.Label(
-            r, text="La pista de referencia se guardará en:"
-        ).grid(row=1, column=0, columnspan=2, sticky="w", padx=10)
+        path_row = ttk.Frame(r)
+        path_row.grid(
+            row=1,
+            column=0,
+            columnspan=2,
+            pady=(6, 2),
+            sticky="n"
+        )
 
-        ttk.Entry(
-            r, textvariable=ref_path_var,
-            state="readonly", width=70
-        ).grid(row=2, column=0, columnspan=2, sticky="we", padx=10, pady=(0, 6))
+        ttk.Label(
+            path_row,
+            text="Ruta de la Pista de Referencia:"
+        ).pack(side="left", padx=(0, 6))
+
+        ttk.Label(
+            path_row,
+            textvariable=ref_path_var,
+            foreground="#444",
+            wraplength=600,
+            justify="left"
+        ).pack(side="left")
+
 
         # =========================
         # FECHA
         # =========================
         ref_date_var = tk.StringVar(value="—")
 
-        ttk.Label(
-            r, text="Grabada en:"
-        ).grid(row=3, column=0, sticky="w", padx=10)
+        date_row = ttk.Frame(r)
+        date_row.grid(
+            row=2,
+            column=0,
+            columnspan=2,
+            pady=(2, 8),
+            sticky="n"
+        )
 
         ttk.Label(
-            r, textvariable=ref_date_var
-        ).grid(row=3, column=1, sticky="w")
+            date_row,
+            text="Fecha de la Pista de Referencia:"
+        ).pack(side="left", padx=(0, 6))
+
+        ttk.Label(
+            date_row,
+            textvariable=ref_date_var,
+            foreground="#444"
+        ).pack(side="left")
+
+
+        def cargar_referencia_existente():
+            try:
+                ref_path = Path(ref_var.get()).resolve()
+
+                if not ref_path.exists():
+                    return  # no hay referencia aún
+
+                # cargar audio
+                x, fs0 = sf.read(ref_path, dtype="float32", always_2d=False)
+                if x.ndim == 2:
+                    x = x.mean(axis=1)
+
+                # recorte
+                x_o, x_cut, fs_u, s, e = crop_between_frequency_flags(x, fs0)
+
+                # plot
+                ax_ref_orig.clear()
+                ax_ref_cut.clear()
+
+                t1 = np.arange(len(x_o)) / fs_u
+                t2 = np.arange(len(x_cut)) / fs_u
+
+                ax_ref_orig.plot(t1, x_o, lw=0.7)
+                ax_ref_cut.plot(t2, x_cut, lw=0.7)
+
+                ax_ref_orig.axvline(s / fs_u, ls="--", color="green")
+                ax_ref_orig.axvline(e / fs_u, ls="--", color="red")
+
+                ax_ref_orig.set_title("Referencia – ORIGINAL")
+                ax_ref_cut.set_title("Referencia – RECORTADA")
+
+                for ax in (ax_ref_orig, ax_ref_cut):
+                    ax.set_xlabel("Tiempo")
+                    ax.set_ylabel("Amplitud")
+                    ax.grid(True, axis="x", linestyle=":", linewidth=0.8)
+
+                canvas_ref.draw_idle()
+
+                # metadata
+                ref_path_var.set(str(ref_path))
+                mtime = datetime.fromtimestamp(ref_path.stat().st_mtime)
+                ref_date_var.set(mtime.strftime("%Y-%m-%d %H:%M:%S"))
+
+            except Exception as e:
+                print("No se pudo cargar referencia existente:", e)
+
+
+
+
 
         # =========================
         # BOTÓN GRABAR
@@ -468,7 +556,8 @@ class AudioCinemaGUI:
                 for ax in (ax_ref_orig, ax_ref_cut):
                     ax.set_xlabel("Tiempo")
                     ax.set_ylabel("Amplitud")
-                    ax.grid(True)
+                    ax.grid(True, axis="x", linestyle=":", linewidth=0.8)
+
 
                 fig_ref.tight_layout()
                 canvas_ref.draw_idle()
@@ -478,11 +567,18 @@ class AudioCinemaGUI:
 
         ttk.Button(
             r,
-            text="Grabar referencia ahora",
+            text="Grabar Pista de Referencia",
             command=grabar_referencia
-        ).grid(row=4, column=0, sticky="w", padx=10, pady=(8, 12))
+        ).grid(
+            row=4,
+            column=0,
+            columnspan=2,
+            pady=(10, 14),
+            sticky="n"
+        )
 
 
+        cargar_referencia_existente()
 
 
         
