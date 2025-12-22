@@ -269,9 +269,10 @@ def json_safe(obj):
         return float(obj)
     elif isinstance(obj, (np.int32, np.int64)):
         return int(obj)
+    elif isinstance(obj, (np.bool_,)):   # 🔴 ESTA ES LA CLAVE
+        return bool(obj)
     else:
         return obj
-
 
 
 
