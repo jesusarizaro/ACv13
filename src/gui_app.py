@@ -365,149 +365,123 @@ class AudioCinemaGUI:
         ttk.Label(t, text="Token:").grid(row=3, column=0, sticky="w", pady=(6,2))
         ttk.Entry(t, textvariable=token_var, width=40).grid(row=3, column=1, sticky="w")
 
-        # -------- Pista de referencia (nueva) --------
-        # -------- Pista de referencia (nueva) --------
-        r = ttk.Frame(nb); nb.add(r, text="Pista de referencia")
+        # -------- Pista de referencia (nueva) -------------------------------------------------------------------
+        # -------- Pista de referencia --------
+        r = ttk.Frame(nb)
+        nb.add(r, text="Pista de referencia")
 
-        # valor actual mostrado (solo lectura)
-        ref_path_var = tk.StringVar(value=ref_var.get())
+        r.grid_columnconfigure(0, weight=1)
+        r.grid_columnconfigure(1, weight=1)
 
-        ttk.Label(r, text="La pista de referencia se guardará en:").grid(
-            row=0, column=0, columnspan=2, sticky="w", pady=(8,2)
-        )
-        ttk.Entry(r, textvariable=ref_path_var, width=50, state="readonly").grid(
-            row=1, column=0, columnspan=2, sticky="w", padx=6, pady=(0,8)
-        )
-
-        # -----------------------------
-        # NUEVO: 2 gráficas + metadata
-        # -----------------------------
-        fig_ref = Figure(figsize=(7.0, 3.2), dpi=100)
+        # =========================
+        # FIGURA (2 GRÁFICAS)
+        # =========================
+        fig_ref = Figure(figsize=(7.2, 3.4), dpi=100)
         ax_ref_orig = fig_ref.add_subplot(1, 2, 1)
         ax_ref_cut  = fig_ref.add_subplot(1, 2, 2)
 
-        ref_canvas = FigureCanvasTkAgg(fig_ref, master=r)
-        ref_canvas.get_tk_widget().grid(row=3, column=0, columnspan=2, sticky="nsew", padx=6, pady=(4,6))
+        for ax, title in [
+            (ax_ref_orig, "Referencia – ORIGINAL"),
+            (ax_ref_cut,  "Referencia – RECORTADA"),
+        ]:
+            ax.set_title(title)
+            ax.set_xlabel("Tiempo")
+            ax.set_ylabel("Amplitud")
+            ax.grid(True)
 
-        # que el área de la gráfica se estire
-        r.grid_columnconfigure(0, weight=1)
-        r.grid_columnconfigure(1, weight=1)
-        r.grid_rowconfigure(3, weight=1)
+        canvas_ref = FigureCanvasTkAgg(fig_ref, master=r)
+        canvas_ref.get_tk_widget().grid(
+            row=0, column=0, columnspan=2,
+            sticky="nsew", padx=10, pady=(10, 8)
+        )
 
-        ref_saved_path_var = tk.StringVar(value="—")
-        ref_saved_time_var = tk.StringVar(value="—")
+        # =========================
+        # RUTA
+        # =========================
+        ref_path_var = tk.StringVar(value=ref_var.get())
 
-        ttk.Label(r, text="Ruta guardada:").grid(row=4, column=0, sticky="w", padx=6, pady=(2,0))
-        ttk.Label(r, textvariable=ref_saved_path_var).grid(row=4, column=1, sticky="w", padx=6, pady=(2,0))
+        ttk.Label(
+            r, text="La pista de referencia se guardará en:"
+        ).grid(row=1, column=0, columnspan=2, sticky="w", padx=10)
 
-        ttk.Label(r, text="Grabada en:").grid(row=5, column=0, sticky="w", padx=6, pady=(2,8))
-        ttk.Label(r, textvariable=ref_saved_time_var).grid(row=5, column=1, sticky="w", padx=6, pady=(2,8))
+        ttk.Entry(
+            r, textvariable=ref_path_var,
+            state="readonly", width=70
+        ).grid(row=2, column=0, columnspan=2, sticky="we", padx=10, pady=(0, 6))
 
-        def _plot_in_tab(x_orig: np.ndarray, x_cut: np.ndarray, fs_now: int,
-                         start_idx: int | None = None, end_idx: int | None = None):
-            ax_ref_orig.clear()
-            ax_ref_cut.clear()
+        # =========================
+        # FECHA
+        # =========================
+        ref_date_var = tk.StringVar(value="—")
 
-            # original
-            t1 = np.arange(len(x_orig), dtype=np.float32) / float(fs_now if fs_now else 1)
-            ax_ref_orig.plot(t1, x_orig, linewidth=0.7)
-            ax_ref_orig.set_title("Referencia – ORIGINAL")
-            ax_ref_orig.set_xlabel("Tiempo (s)")
-            ax_ref_orig.set_ylabel("Amp.")
-            ax_ref_orig.grid(True, axis="x", ls=":")
+        ttk.Label(
+            r, text="Grabada en:"
+        ).grid(row=3, column=0, sticky="w", padx=10)
 
-            if start_idx is not None:
-                ax_ref_orig.axvline(start_idx / fs_now, color="green", ls="--")
-            if end_idx is not None:
-                ax_ref_orig.axvline(end_idx / fs_now, color="red", ls="--")
+        ttk.Label(
+            r, textvariable=ref_date_var
+        ).grid(row=3, column=1, sticky="w")
 
-            # recortada
-            t2 = np.arange(len(x_cut), dtype=np.float32) / float(fs_now if fs_now else 1)
-            ax_ref_cut.plot(t2, x_cut, linewidth=0.7)
-            ax_ref_cut.set_title("Referencia – RECORTADA")
-            ax_ref_cut.set_xlabel("Tiempo (s)")
-            ax_ref_cut.set_ylabel("Amp.")
-            ax_ref_cut.grid(True, axis="x", ls=":")
-
-            fig_ref.tight_layout()
-            ref_canvas.draw_idle()
-
-        def _load_existing_reference_and_render():
-            """Si existe el .wav actual, lo carga, recorta y lo dibuja + metadata."""
-            try:
-                p = Path(ref_path_var.get()).expanduser().resolve()
-                if not p.exists():
-                    # limpiar
-                    ax_ref_orig.clear(); ax_ref_cut.clear()
-                    ax_ref_orig.set_title("Referencia – ORIGINAL")
-                    ax_ref_cut.set_title("Referencia – RECORTADA")
-                    ref_canvas.draw_idle()
-                    ref_saved_path_var.set("—")
-                    ref_saved_time_var.set("—")
-                    return
-
-                x, fs0 = sf.read(p, dtype="float32", always_2d=False)
-                if getattr(x, "ndim", 1) == 2:
-                    x = x.mean(axis=1)
-                x = normalize_mono(x)
-
-                # recorte por banderas (5500 Hz) usando tu función
-                x_o, x_cut, fs_used, s_idx, e_idx = crop_between_frequency_flags(x, int(fs0))
-
-                _plot_in_tab(x_o, x_cut, int(fs_used), s_idx, e_idx)
-
-                # metadata: ruta + mtime del archivo
-                ref_saved_path_var.set(str(p))
-                mtime = datetime.fromtimestamp(p.stat().st_mtime)
-                ref_saved_time_var.set(mtime.strftime("%Y-%m-%d %H:%M:%S"))
-            except Exception:
-                # no bloquear la UI si algo falla
-                ax_ref_orig.clear(); ax_ref_cut.clear()
-                ax_ref_orig.set_title("Referencia – ORIGINAL")
-                ax_ref_cut.set_title("Referencia – RECORTADA")
-                ref_canvas.draw_idle()
-                ref_saved_path_var.set(ref_path_var.get())
-                ref_saved_time_var.set("—")
-
-        def _record_reference_here():
-            """Graba y guarda en assets/reference_master.wav con fs/duración actuales."""
+        # =========================
+        # BOTÓN GRABAR
+        # =========================
+        def grabar_referencia():
             fs_now = int(fs_var.get())
             dur_now = float(dur_var.get())
-            device_idx = self.input_device_index
 
             try:
-                x = record_audio(dur_now, fs=fs_now, channels=1, device=device_idx)
+                x = record_audio(
+                    dur_now,
+                    fs=fs_now,
+                    channels=1,
+                    device=self.input_device_index
+                )
 
                 ASSETS_DIR.mkdir(parents=True, exist_ok=True)
                 out = (ASSETS_DIR / "reference_master.wav").resolve()
-                sf.write(str(out), x, fs_now)
+                sf.write(out, x, fs_now)
 
-                # reflejar en UI de la pestaña y en General
-                ref_path_var.set(str(out))
+                # UI
                 ref_var.set(str(out))
+                ref_path_var.set(str(out))
+                ref_date_var.set(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
-                # recortar y dibujar
-                x_o, x_cut, fs_used, s_idx, e_idx = crop_between_frequency_flags(x, fs_now)
-                _plot_in_tab(x_o, x_cut, int(fs_used), s_idx, e_idx)
+                # recorte
+                x_o, x_cut, fs_u, s, e = crop_between_frequency_flags(x, fs_now)
 
-                # metadata
-                ref_saved_path_var.set(str(out))
-                ref_saved_time_var.set(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+                # plot
+                ax_ref_orig.clear()
+                ax_ref_cut.clear()
 
-                messagebox.showinfo("Pista de referencia", f"Referencia guardada en:\n{out}")
+                t1 = np.arange(len(x_o)) / fs_u
+                t2 = np.arange(len(x_cut)) / fs_u
+
+                ax_ref_orig.plot(t1, x_o, lw=0.7)
+                ax_ref_cut.plot(t2, x_cut, lw=0.7)
+
+                ax_ref_orig.axvline(s / fs_u, ls="--", color="green")
+                ax_ref_orig.axvline(e / fs_u, ls="--", color="red")
+
+                ax_ref_orig.set_title("Referencia – ORIGINAL")
+                ax_ref_cut.set_title("Referencia – RECORTADA")
+
+                for ax in (ax_ref_orig, ax_ref_cut):
+                    ax.set_xlabel("Tiempo")
+                    ax.set_ylabel("Amplitud")
+                    ax.grid(True)
+
+                fig_ref.tight_layout()
+                canvas_ref.draw_idle()
 
             except Exception as e:
-                messagebox.showerror("Pista de referencia", f"No se pudo grabar:\n{e}")
+                messagebox.showerror("Pista de referencia", str(e))
 
-        # Botón de grabación (row=2)
-        ttk.Button(r, text="Grabar referencia ahora", command=_record_reference_here)\
-            .grid(row=2, column=0, sticky="w", padx=6, pady=6)
-        ttk.Label(r, text="(Se usará el fs y la duración configurados arriba)").grid(
-            row=2, column=1, sticky="w"
-        )
+        ttk.Button(
+            r,
+            text="Grabar referencia ahora",
+            command=grabar_referencia
+        ).grid(row=4, column=0, sticky="w", padx=10, pady=(8, 12))
 
-        # Al abrir la pestaña, intenta renderizar la referencia existente
-        _load_existing_reference_and_render()
 
 
 
