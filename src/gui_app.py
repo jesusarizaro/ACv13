@@ -697,15 +697,24 @@ class AudioCinemaGUI:
         self.test_name.set(datetime.now().strftime("Test_%Y-%m-%d_%H-%M-%S"))
 
         # 7) exportar y enviar
+        results = []
+        
+        for ch in range(6):
+            results.append(res)
+        
         payload = build_json_payload(
             fs,
-            res,
-            [],
-            [], [],        # ref_markers, cur_markers
-            [], [],        # ref_segments, cur_segments
+            None,
+            results,
+            [], [], [], [],
             None,
             None
         )
+
+
+
+
+        
 
         out = EXPORT_DIR / f"analysis_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}.json"
         with open(out, "w", encoding="utf-8") as f:
