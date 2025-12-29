@@ -195,7 +195,7 @@ def analyze_pair(x_ref: np.ndarray, x_cur: np.ndarray, fs: int) -> dict:
 def build_json_payload(
     fs: int,
     global_result: dict | None,
-    channel_results: list,
+    channel_results: list[dict],
     ref_markers,
     cur_markers,
     ref_segments,
@@ -204,35 +204,33 @@ def build_json_payload(
     cin_wav
 ) -> dict:
     """
-    Construye payload FINAL para ThingsBoard
-    Estructura esperada por widgets CanalX
+    Construye payload MULTICANAL para ThingsBoard
+    Keys: Canal1 ... Canal6
     """
 
-    if not global_result:
-        return {}
+    payload = {}
 
-    # =========================
-    # Estado del canal
-    # =========================
-    estado = "MUERTO" if global_result.get("dead_channel") else "VIVO"
+    for idx, ch in enumerate(channel_results):
+        canal_id = f"Canal{idx + 1}"
 
-    payload = {
-        "Canal1": {
-            "Evaluacion": global_result.get("overall", "FAILED"),
+        estado = "MUERTO" if ch.get("dead_channel") else "VIVO"
+
+        payload[canal_id] = {
+            "Evaluacion": ch.get("overall", "FAILED"),
             "Estado": estado,
             "ref": {
-                k: float(v) for k, v in global_result.get("bands_ref", {}).items()
+                k: float(v) for k, v in ch.get("bands_ref", {}).items()
             },
             "cine": {
-                k: float(v) for k, v in global_result.get("bands_cur", {}).items()
+                k: float(v) for k, v in ch.get("bands_cur", {}).items()
             },
             "delta": {
-                k: float(v) for k, v in global_result.get("diff_bands", {}).items()
+                k: float(v) for k, v in ch.get("diff_bands", {}).items()
             }
         }
-    }
 
     return payload
+
 
 
 
