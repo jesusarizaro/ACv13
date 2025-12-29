@@ -672,6 +672,24 @@ class AudioCinemaGUI:
         x_cur_o, x_cur_cut, fs, cur_start, cur_end = crop_between_frequency_flags(
             x_cur, fs
         )
+
+
+
+
+        from analyzer import split_equal_segments
+
+        ref_segs = split_equal_segments(x_ref_cut, 6)
+        cur_segs = split_equal_segments(x_cur_cut, 6)
+        
+        channel_results = []
+        for i, (rseg, cseg) in enumerate(zip(ref_segs, cur_segs), start=1):
+            res = analyze_pair(rseg, cseg, fs)
+            channel_results.append(res)
+
+
+
+
+
         
         # =========================
         # DIBUJAR 4 GRÁFICAS
