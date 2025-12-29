@@ -192,7 +192,6 @@ def analyze_pair(x_ref: np.ndarray, x_cur: np.ndarray, fs: int) -> dict:
 # =========================================================
 # JSON
 # =========================================================
-
 def build_json_payload(
     fs: int,
     global_result: dict | None,
@@ -201,55 +200,41 @@ def build_json_payload(
     cur_markers,
     ref_segments,
     cur_segments,
-    ref_wav: str | None,
-    cin_wav: str | None
+    ref_wav,
+    cin_wav
 ) -> dict:
     """
-    Payload plano y compatible con ThingsBoard
+    Construye payload FINAL para ThingsBoard
+    Estructura esperada por widgets CanalX
     """
 
-    if global_result is None:
+    if not global_result:
         return {}
 
+    # =========================
+    # Estado del canal
+    # =========================
+    estado = "MUERTO" if global_result.get("dead_channel") else "VIVO"
+
     payload = {
-        # ---------------------------
-        # METADATA
-        # ---------------------------
-        "app": "AudioCinema",
-        "fs_hz": fs,
-        "timestamp_utc": datetime.utcnow().isoformat(timespec="seconds") + "Z",
-
-        # ---------------------------
-        # ESTADO GENERAL
-        # ---------------------------
-        "Evaluacion": global_result["overall"],
-        "Estado": "MUERTO" if global_result["dead_channel"] else "VIVO",
-
-        # ---------------------------
-        # RMS
-        # ---------------------------
-        "rms_ref_db": float(np.round(global_result["rms_ref"], 2)),
-        "rms_cin_db": float(np.round(global_result["rms_cur"], 2)),
-
-        # ---------------------------
-        # CREST
-        # ---------------------------
-        "crest_ref_db": float(np.round(global_result["crest_ref"], 2)),
-        "crest_cin_db": float(np.round(global_result["crest_cur"], 2)),
+        "Canal1": {
+            "Evaluacion": global_result.get("overall", "FAILED"),
+            "Estado": estado,
+            "ref": {
+                k: float(v) for k, v in global_result.get("bands_ref", {}).items()
+            },
+            "cine": {
+                k: float(v) for k, v in global_result.get("bands_cur", {}).items()
+            },
+            "delta": {
+                k: float(v) for k, v in global_result.get("diff_bands", {}).items()
+            }
+        }
     }
 
-    # ---------------------------
-    # BANDAS (DELTA)
-    # ---------------------------
-    for band, val in global_result["diff_bands"].items():
-        payload[f"{band}_delta_db"] = float(np.round(val, 2))
-
-    # ---------------------------
-    # BACKUP JSON COMPLETO
-    # ---------------------------
-    payload["summary_json"] = json_safe(global_result)
-
     return payload
+
+
 
 
 def json_safe(obj):
