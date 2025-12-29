@@ -8,6 +8,14 @@ from typing import List, Tuple, Optional
 import numpy as np
 import sounddevice as sd
 
+
+
+DEAD_RMS_DB = -55.0     # silencio real (mic normal)
+DEAD_PEAK   = 0.02      # pico mínimo (señal normalizada)
+
+
+
+
 # =========================================================
 # UTILIDADES BÁSICAS DE AUDIO
 # =========================================================
@@ -160,11 +168,20 @@ def band_energy_db(f, psd_db, band):
     p = 10**(psd_db[mask]/10)
     return 10*np.log10(np.mean(p) + 1e-30)
 
-
+#---------------------------------------------------------------------------------------------------------
 def analyze_pair(x_ref: np.ndarray, x_cur: np.ndarray, fs: int) -> dict:
-    rms_ref, rms_cur = rms_db(x_ref), rms_db(x_cur)
-    crest_ref, crest_cur = crest_factor_db(x_ref), crest_factor_db(x_cur)
+    rms_ref = rms_db(x_ref)
+    rms_cur = rms_db(x_cur)
 
+    crest_ref = crest_factor_db(x_ref)
+    crest_cur = crest_factor_db(x_cur)
+
+    peak_cur = float(np.max(np.abs(x_cur)) + 1e-12)
+
+    # ===== DETECCIÓN DE CANAL MUERTO (CRÍTICO) =====
+    dead_abs = (rms_cur < DEAD_RMS_DB) or (peak_cur < DEAD_PEAK)
+
+    # PSD
     f_ref, psd_ref = welch_db(x_ref, fs)
     f_cur, psd_cur = welch_db(x_cur, fs)
 
@@ -172,22 +189,30 @@ def analyze_pair(x_ref: np.ndarray, x_cur: np.ndarray, fs: int) -> dict:
     bands_cur = {k: band_energy_db(f_cur, psd_cur, v) for k, v in BANDS.items()}
     diff_bands = {k: bands_cur[k] - bands_ref[k] for k in BANDS}
 
-    dead = rms_cur < (rms_ref - 10)
     band_fail = any(abs(v) > 6 for v in diff_bands.values())
     crest_fail = abs(crest_cur - crest_ref) > 4
 
+    overall = "FAILED" if (dead_abs or band_fail or crest_fail) else "PASSED"
+
     return {
-        "fs": fs,
-        "rms_ref": rms_ref,
-        "rms_cur": rms_cur,
-        "crest_ref": crest_ref,
-        "crest_cur": crest_cur,
-        "diff_bands": diff_bands,
-        "bands_ref": bands_ref,
-        "bands_cur": bands_cur,
-        "dead_channel": dead,
-        "overall": "FAILED" if (dead or band_fail or crest_fail) else "PASSED"
+        "Evaluacion": overall,
+        "Estado": "MUERTO" if dead_abs else "VIVO",
+        "rms": {
+            "ref_db": rms_ref,
+            "cin_db": rms_cur
+        },
+        "crest": {
+            "ref_db": crest_ref,
+            "cin_db": crest_cur
+        },
+        "spec95_db": 0.0,  # si luego lo usas
+        "ref": bands_ref,
+        "cine": bands_cur,
+        "delta": diff_bands,
+        "peak_cur": peak_cur,
+        "dead_channel": bool(dead_abs)
     }
+
 
 # =========================================================
 # JSON
